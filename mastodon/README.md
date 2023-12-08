@@ -1,0 +1,1 @@
+This chart is a modified version of the one found here: https://github.com/mastodon/chart

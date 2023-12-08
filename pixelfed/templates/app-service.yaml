@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -c -o chart
+    kompose.service.expose: pixelfed.k3s.local
+    kompose.service.expose.ingress-class-name: nginx
+    kompose.version: 1.29.0 (b6b708b6)
+    kompose.volume.size: 10G
+  creationTimestamp: null
+  labels:
+    io.kompose.service: app
+  name: app
+  
+spec:
+  ports:
+    - name: "8080"
+      port: 8080
+      targetPort: 80
+  selector:
+    io.kompose.service: app
+status:
+  loadBalancer: {}

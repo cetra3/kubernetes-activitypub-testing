@@ -1,0 +1,34 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -c -o chart
+    kompose.service.expose: pixelfed.k3s.local
+    kompose.service.expose.ingress-class-name: nginx
+    kompose.version: 1.29.0 (b6b708b6)
+    kompose.volume.size: 10G
+    cert-manager.io/cluster-issuer: k3s-ca-issuer
+  creationTimestamp: null
+  labels:
+    io.kompose.service: app
+  name: app
+  
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: pixelfed.k3s.local
+      http:
+        paths:
+          - backend:
+              service:
+                name: app
+                port:
+                  number: 8080
+            path: /
+            pathType: Prefix
+  tls:
+    - secretName: pixelfed-cert
+      hosts:
+        - pixelfed.k3s.local
+status:
+  loadBalancer: {}

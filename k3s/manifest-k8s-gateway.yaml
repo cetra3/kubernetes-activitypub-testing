@@ -1,0 +1,202 @@
+---
+# Source: k8s-gateway/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: exdns-k8s-gateway
+  namespace: kube-system
+  labels:
+    helm.sh/chart: k8s-gateway-2.0.4
+    app.kubernetes.io/name: k8s-gateway
+    app.kubernetes.io/instance: exdns
+    app.kubernetes.io/version: "0.3.4"
+    app.kubernetes.io/managed-by: Helm
+---
+# Source: k8s-gateway/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: exdns-k8s-gateway
+  namespace: kube-system
+  labels:
+    helm.sh/chart: k8s-gateway-2.0.4
+    app.kubernetes.io/name: k8s-gateway
+    app.kubernetes.io/instance: exdns
+    app.kubernetes.io/version: "0.3.4"
+    app.kubernetes.io/managed-by: Helm
+data:
+  Corefile: |-
+    .:1053 {
+        k8s_gateway k3s.local {
+          apex exdns-k8s-gateway.kube-system
+          ttl 300
+        }
+        log
+        errors
+        health { 
+          lameduck 5s
+        }
+        ready
+        prometheus 0.0.0.0:9153
+        forward . /etc/resolv.conf
+        loop
+        reload
+        loadbalance
+    }
+---
+# Source: k8s-gateway/templates/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: exdns-k8s-gateway
+  namespace: kube-system
+  labels:
+    helm.sh/chart: k8s-gateway-2.0.4
+    app.kubernetes.io/name: k8s-gateway
+    app.kubernetes.io/instance: exdns
+    app.kubernetes.io/version: "0.3.4"
+    app.kubernetes.io/managed-by: Helm
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - services
+  - namespaces
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - extensions
+  - networking.k8s.io
+  resources:
+  - ingresses
+  verbs:
+  - list
+  - watch
+- apiGroups: ["gateway.networking.k8s.io"]
+  resources: ["*"]
+  verbs: ["watch", "list"]
+- apiGroups: ["k8s.nginx.org"]
+  resources: ["*"]
+  verbs: ["watch", "list"]
+---
+# Source: k8s-gateway/templates/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: exdns-k8s-gateway
+  namespace: kube-system
+  labels:
+    helm.sh/chart: k8s-gateway-2.0.4
+    app.kubernetes.io/name: k8s-gateway
+    app.kubernetes.io/instance: exdns
+    app.kubernetes.io/version: "0.3.4"
+    app.kubernetes.io/managed-by: Helm
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: exdns-k8s-gateway
+subjects:
+- kind: ServiceAccount
+  name: exdns-k8s-gateway
+  namespace: kube-system
+---
+# Source: k8s-gateway/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: exdns-k8s-gateway
+  namespace: kube-system
+  labels:
+    helm.sh/chart: k8s-gateway-2.0.4
+    app.kubernetes.io/name: k8s-gateway
+    app.kubernetes.io/instance: exdns
+    app.kubernetes.io/version: "0.3.4"
+    app.kubernetes.io/managed-by: Helm
+    metallb.universe.tf/loadBalancerIPs: 172.22.0.3
+  annotations:
+    prometheus.io/port: "9153"
+    prometheus.io/scrape: "true"
+spec:
+  selector:
+      app.kubernetes.io/name: k8s-gateway
+      app.kubernetes.io/instance: exdns
+  type: LoadBalancer
+  clusterIP: 10.43.0.11
+  ports:
+  - port: 53
+    protocol: UDP
+    name: dns-udp
+    targetPort: dns-udp
+---
+# Source: k8s-gateway/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: exdns-k8s-gateway
+  namespace: kube-system
+  labels:
+    helm.sh/chart: k8s-gateway-2.0.4
+    app.kubernetes.io/name: k8s-gateway
+    app.kubernetes.io/instance: exdns
+    app.kubernetes.io/version: "0.3.4"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: k8s-gateway
+      app.kubernetes.io/instance: exdns
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: k8s-gateway
+        app.kubernetes.io/instance: exdns
+      annotations:
+        checksum/config: 07acc9d5f1e59b85b495bab44b25594bf87c2e739587a820bd7bfe872dae70ac
+    spec:
+      serviceAccountName: exdns-k8s-gateway
+      containers:
+      - name: k8s-gateway
+        image: "quay.io/oriedge/k8s_gateway:v0.3.4"
+        imagePullPolicy: IfNotPresent
+        args: [ "-conf", "/etc/coredns/Corefile" ]
+        securityContext:
+          runAsUser: 1000
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/coredns
+        resources:
+            {}
+        ports:
+        - containerPort: 1053
+          name: dns-udp
+          protocol: UDP
+        - containerPort: 9153
+          name: metrics
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 60
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 5
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8181
+            scheme: HTTP
+          initialDelaySeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 5
+      volumes:
+        - name: config-volume
+          configMap:
+            name: exdns-k8s-gateway
+            items:
+            - key: Corefile
+              path: Corefile

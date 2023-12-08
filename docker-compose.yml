@@ -1,0 +1,33 @@
+version: "3"
+
+services:
+  registry:
+    image: registry:2
+    ports:
+      - 5000:5000
+    volumes:
+      - docker-registry:/var/lib/registry
+  k3s-server:
+    container_name: k3s-server-1
+    hostname: k3s-server-1
+    image: rancher/k3s:v1.28.3-k3s2
+    privileged: true
+    volumes:
+      - ./k3s/registries.yaml:/etc/rancher/k3s/registries.yaml
+      - ./k3s/manifest-coredns.yaml:/var/lib/rancher/k3s/server/manifests/clusterdns.yaml
+      - ./k3s/manifest-k8s-gateway.yaml:/var/lib/rancher/k3s/server/manifests/k8s-gateway.yaml
+      - k3s-server:/var/lib/rancher/k3s
+      - k3s-data:/data
+    depends_on:
+      - registry
+    ports:
+      - 6443:6443
+    command:
+      - server
+      - --disable=traefik
+      - --disable=coredns
+
+volumes:
+  docker-registry:
+  k3s-server:
+  k3s-data:

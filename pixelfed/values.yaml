@@ -1,0 +1,3 @@
+image:
+  # You'll need to generate this on your own
+  repository: registry:5000/pixelfed
