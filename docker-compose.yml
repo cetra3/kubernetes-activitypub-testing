@@ -10,7 +10,7 @@ services:
   k3s-server:
     container_name: k3s-server-1
     hostname: k3s-server-1
-    image: rancher/k3s:v1.28.3-k3s2
+    image: rancher/k3s:v1.31.5-k3s1
     privileged: true
     volumes:
       - ./k3s/registries.yaml:/etc/rancher/k3s/registries.yaml
@@ -26,7 +26,6 @@ services:
       - server
       - --disable=traefik
       - --disable=coredns
-
 volumes:
   docker-registry:
   k3s-server:
